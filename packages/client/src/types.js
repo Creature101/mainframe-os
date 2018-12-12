@@ -376,3 +376,12 @@ export type VaultSettings = {
 }
 
 export type VaultSettingsParams = $Shape<VaultSettings>
+
+export type StorageSetFileParams = {
+  filename: string,
+  data: string,
+}
+
+export type StorageGetFileParams = {
+  filename: string,
+}

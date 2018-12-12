@@ -235,3 +235,12 @@ export const IDENTITY_UNLINK_ETH_WALLET_SCHEMA = {
   walletID: LOCAL_ID_SCHEMA,
   address: 'string',
 }
+
+export const STORAGE_SET_FILE_SCHEMA = {
+  filename: 'string',
+  data: 'string',
+}
+
+export const STORAGE_GET_FILE_SCHEMA = {
+  filename: 'string',
+}
