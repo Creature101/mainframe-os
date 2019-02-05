@@ -55,7 +55,7 @@ export const createKeyStore = async (password: string): Promise<string> => {
     dk.iv,
     options,
   )
-  await fs.ensureDir(datadir)
+  await fs.ensureDir(keystorePath)
   await keythereum.exportToFile(keyObject, keystorePath)
   return keyObject.address
 }

@@ -14,7 +14,8 @@
     "build:flow": "flow-copy-source src lib",
     "relay": "relay-compiler --src ./src --schema ./schema.graphql",
     "test:types": "flow check",
-    "test": "mocha"
+    "test": "mocha",
+    "postinstall": "electron-builder install-app-deps"
   },
   "electronWebpack": {
     "title": "Mainframe",

@@ -14,8 +14,12 @@ import {
   SwarmConfig,
 } from '@mainframe/config'
 import StreamRPC from '@mainframe/rpc-stream'
-import { setupDaemon, startDaemon } from '@mainframe/toolbox'
-import { createKeyStore, startSwarm } from '@mainframe/toolbox'
+import {
+  createKeyStore,
+  setupDaemon,
+  startDaemon,
+  startSwarm,
+} from '@mainframe/toolbox'
 // eslint-disable-next-line import/named
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { is } from 'electron-util'
@@ -30,12 +34,18 @@ import createElectronTransport from './createElectronTransport'
 import createRPCChannels from './rpc/createChannels'
 
 const PORT = process.env.ELECTRON_WEBPACK_WDS_PORT || ''
-const binPath = './packages/daemon/bin/run'
+
+const DAEMON_BIN_PATH = is.development
+  ? path.resolve(__dirname, '../../../daemon/bin/run')
+  : `${process.resourcesPath}/bin/mainframed`
+const SWARM_BIN_PATH = is.development
+  ? 'swarm'
+  : `${process.resourcesPath}/bin/swarm`
+
+// const binPath = './packages/daemon/bin/run'
 const homedir = os.homedir()
 const datadir = `${homedir}${path.sep}.mainframe${path.sep}swarm`
-const passwordFile = `${homedir}${path.sep}.mainframe${path.sep}swarm${
-  path.sep
-}password`
+const passwordFile = `${datadir}${path.sep}password`
 const service = 'com.mainframe.services.swarm'
 const account = 'mainframe'
 
@@ -60,13 +70,6 @@ const platform = {
 }[os.platform()]
 
 console.log(`Platform: ${platform}`)
-const getBinPath = async (): Promise<string> => {
-  if (is.development) {
-    return 'swarm'
-  } else {
-    return `${process.resourcesPath}/bin/swarm`
-  }
-}
 
 let client
 let launcherWindow
@@ -158,58 +161,55 @@ const getSwarmKeystorePassword = async (): Promise<string> => {
   if (password == null) {
     const buffer = crypto.randomBytes(48)
     password = buffer.toString('hex')
-    fs.ensureDir(datadir)
     await keytar.setPassword(service, account, password)
-    await fs.writeFile(passwordFile, password, function(err) {
-      if (err) {
-        // eslint-disable-next-line no-console
-        console.log(err)
-      }
-    })
-    return password
-  } else {
-    return password
+    try {
+      await fs.ensureDir(datadir)
+      await fs.writeFile(passwordFile, password)
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.log('error writing password', err)
+    }
   }
+  return password
 }
-
-const envExists = async (): Promise<string> => {
-  if (daemonConfig.binPath == null) {
-    return false
-  }
-  return true
-}
+//
+// const envExists = async (): Promise<string> => {
+//   if (daemonConfig.binPath == null) {
+//     return false
+//   }
+//   return true
+// }
 
 // TODO: proper setup, this is just temporary logic to simplify development flow
 const setupClient = async () => {
-  const firstLaunch = await envExists()
-  if (!firstLaunch) {
-    console.log('detected first launch')
+  if (daemonConfig.binPath == null) {
+    // First launch
+
     const password = await getSwarmKeystorePassword()
     await createKeyStore(password)
-    swarmConfig.binPath = getBinPath
+
+    swarmConfig.binPath = SWARM_BIN_PATH
     swarmConfig.socketPath = 'ws://localhost:8546'
+
+    await setupDaemon(daemonConfig, {
+      binPath: DAEMON_BIN_PATH,
+      socketPath: env.createSocketPath('mainframe.ipc'),
+    })
   }
 
-  console.log(`couldn't find daemon socket path in the env config`)
-  await setupDaemon(new DaemonConfig(env), {
-    binPath: binPath,
-    socketPath: await env.createSocketPath('mainframe.ipc'),
-  })
-
-  const swarmPath = await getBinPath()
-
   try {
-    await startSwarm(swarmPath, swarmConfig)
+    await startSwarm(SWARM_BIN_PATH, swarmConfig)
   } catch (e) {
     // eslint-disable-next-line no-console
     console.log(e)
   }
 
   // /!\ Temporary only, should be handled by toolbox with installation flow
-  if (daemonConfig.binPath == null) {
-    console.log('no daemon config, setting binPath')
-    daemonConfig.binPath = path.resolve(__dirname, '../../../daemon/bin/run')
-  }
+  // if (daemonConfig.binPath == null) {
+  //   console.log('no daemon config, setting binPath')
+  //   daemonConfig.binPath = path.resolve(__dirname, '../../../daemon/bin/run')
+  //   console.log('daemon bin path', daemonConfig.binPath)
+  // }
   if (daemonConfig.runStatus !== 'running') {
     daemonConfig.runStatus = 'stopped'
     console.log('set daemon status to stopped')
@@ -218,7 +218,7 @@ const setupClient = async () => {
   console.log('starting daemon')
   await startDaemon(daemonConfig, true)
   daemonConfig.runStatus = 'running'
-  console.log('deamon started, connecting client to daemon')
+  console.log('daemon started, connecting client to daemon')
   client = new Client(daemonConfig.socketPath)
 
   // Simple check for API call, not proper versioning logic
