@@ -33,8 +33,6 @@ import { interceptWebRequests } from './permissions'
 import createElectronTransport from './createElectronTransport'
 import createRPCChannels from './rpc/createChannels'
 
-const PORT = process.env.ELECTRON_WEBPACK_WDS_PORT || ''
-
 const DAEMON_BIN_PATH = is.development
   ? path.resolve(__dirname, '../../../daemon/bin/run')
   : `${process.resourcesPath}/bin/mainframed`
@@ -42,12 +40,11 @@ const SWARM_BIN_PATH = is.development
   ? 'swarm'
   : `${process.resourcesPath}/bin/swarm`
 
-// const binPath = './packages/daemon/bin/run'
 const homedir = os.homedir()
-const datadir = `${homedir}${path.sep}.mainframe${path.sep}swarm`
-const passwordFile = `${datadir}${path.sep}password`
-const service = 'com.mainframe.services.swarm'
-const account = 'mainframe'
+const SWARM_DATADIR = `${homedir}${path.sep}.mainframe${path.sep}swarm`
+const SWARM_PASSWORD_FILE = `${SWARM_DATADIR}${path.sep}password`
+const SWARM_PASSWORD_SERVICE = 'com.mainframe.services.swarm'
+const SWARM_PASSWORD_ACCOUNT = 'mainframe'
 
 const envType =
   process.env.NODE_ENV === 'production' ? 'production' : 'development'
@@ -62,14 +59,6 @@ console.log(`using environment "${env.name}" (${env.type})`)
 const daemonConfig = new DaemonConfig(env)
 const vaultConfig = new VaultConfig(env)
 const swarmConfig = new SwarmConfig(env)
-
-const platform = {
-  darwin: 'mac',
-  linux: 'linux',
-  win32: 'win',
-}[os.platform()]
-
-console.log(`Platform: ${platform}`)
 
 let client
 let launcherWindow
@@ -88,7 +77,7 @@ const newWindow = (params: Object = {}) => {
   })
 
   if (is.development) {
-    window.loadURL(`http://localhost:${PORT}`)
+    window.loadURL(`http://localhost:${process.env.ELECTRON_WEBPACK_WDS_PORT}`)
   } else {
     const formattedUrl = url.format({
       pathname: path.join(__dirname, `index.html`),
@@ -157,14 +146,20 @@ const launchApp = async (appSession: AppSession) => {
 }
 
 const getSwarmKeystorePassword = async (): Promise<string> => {
-  let password = await keytar.getPassword(service, account)
+  let password = await keytar.getPassword(
+    SWARM_PASSWORD_SERVICE,
+    SWARM_PASSWORD_ACCOUNT,
+  )
   if (password == null) {
-    const buffer = crypto.randomBytes(48)
-    password = buffer.toString('hex')
-    await keytar.setPassword(service, account, password)
+    password = crypto.randomBytes(48).toString('hex')
+    await keytar.setPassword(
+      SWARM_PASSWORD_SERVICE,
+      SWARM_PASSWORD_ACCOUNT,
+      password,
+    )
     try {
-      await fs.ensureDir(datadir)
-      await fs.writeFile(passwordFile, password)
+      await fs.ensureDir(SWARM_DATADIR)
+      await fs.writeFile(SWARM_PASSWORD_FILE, password)
     } catch (err) {
       // eslint-disable-next-line no-console
       console.log('error writing password', err)
@@ -172,53 +167,37 @@ const getSwarmKeystorePassword = async (): Promise<string> => {
   }
   return password
 }
-//
-// const envExists = async (): Promise<string> => {
-//   if (daemonConfig.binPath == null) {
-//     return false
-//   }
-//   return true
-// }
 
-// TODO: proper setup, this is just temporary logic to simplify development flow
 const setupClient = async () => {
+  // First launch flow: initial setup
   if (daemonConfig.binPath == null) {
-    // First launch
-
+    // Get or create password for Swarm node
     const password = await getSwarmKeystorePassword()
     await createKeyStore(password)
-
+    // Configure Swarm
     swarmConfig.binPath = SWARM_BIN_PATH
     swarmConfig.socketPath = 'ws://localhost:8546'
-
+    // Setup daemon
     await setupDaemon(daemonConfig, {
       binPath: DAEMON_BIN_PATH,
       socketPath: env.createSocketPath('mainframe.ipc'),
     })
   }
 
+  // Start Swarm
   try {
-    await startSwarm(SWARM_BIN_PATH, swarmConfig)
+    await startSwarm(swarmConfig)
   } catch (e) {
     // eslint-disable-next-line no-console
-    console.log(e)
+    console.log('Failed to start Swarm:', e)
   }
 
-  // /!\ Temporary only, should be handled by toolbox with installation flow
-  // if (daemonConfig.binPath == null) {
-  //   console.log('no daemon config, setting binPath')
-  //   daemonConfig.binPath = path.resolve(__dirname, '../../../daemon/bin/run')
-  //   console.log('daemon bin path', daemonConfig.binPath)
-  // }
+  // Start daemon and connect local client to it
   if (daemonConfig.runStatus !== 'running') {
     daemonConfig.runStatus = 'stopped'
-    console.log('set daemon status to stopped')
   }
-
-  console.log('starting daemon')
   await startDaemon(daemonConfig, true)
   daemonConfig.runStatus = 'running'
-  console.log('daemon started, connecting client to daemon')
   client = new Client(daemonConfig.socketPath)
 
   // Simple check for API call, not proper versioning logic
@@ -248,8 +227,8 @@ const createLauncherWindow = async () => {
     // Object.keys(appWindows).forEach(w => {
     //   appWindows[w].close()
     // })
-    launcherWindow = null
     await launcherContext.clear()
+    launcherWindow = null
   })
 }
 
@@ -257,9 +236,7 @@ app.on('ready', createLauncherWindow)
 
 // Quit when all windows are closed.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  app.quit()
 })
 
 app.on('activate', () => {

@@ -14,14 +14,10 @@ export const getDaemonBinPath = (env: Environment): ?string => {
 }
 
 export const setDaemonBinPath = (env: Environment, path: string): void => {
-  console.log(`setting daemon bin path to ${path}`)
   env.config.set(DAEMON_BIN_PATH_KEY, path)
 }
 
 export const getDaemonSocketPath = (env: Environment): string => {
-  console.log(
-    `get daemon socket path: ${env.config.get(DAEMON_SOCKET_PATH_KEY)}`,
-  )
   return (
     env.config.get(DAEMON_SOCKET_PATH_KEY) ||
     env.createSocketPath('mainframe.ipc')
@@ -29,7 +25,6 @@ export const getDaemonSocketPath = (env: Environment): string => {
 }
 
 export const setDaemonSocketPath = (env: Environment, path: string): void => {
-  console.log(`setting daemon socket path to ${path}`)
   env.config.set(DAEMON_SOCKET_PATH_KEY, path)
 }
 

@@ -4,13 +4,32 @@ import { spawn, type ChildProcess } from 'child_process'
 import type { DaemonConfig } from '@mainframe/config'
 import execa from 'execa'
 
+import { onDataMatch } from './utils'
+
 const execStartDaemon = (
   binPath: string,
   envName: string,
   detached: boolean = false,
-): ChildProcess => {
-  console.log(`Trying to start daemon with environment: ${envName}`)
-  return spawn(binPath, ['start', `--env=${envName}`], { detached })
+): Promise<ChildProcess> => {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(binPath, ['start', `--env=${envName}`], { detached })
+    const stopOut = onDataMatch(
+      proc.stdout,
+      `${envName} server started`,
+      () => {
+        stopOut()
+        resolve(proc)
+      },
+    )
+    const stopErr = onDataMatch(
+      proc.stderr,
+      `${envName} server failed to start`,
+      () => {
+        stopErr()
+        reject(new Error('Server failed to start'))
+      },
+    )
+  })
 }
 
 const execStopDaemon = (binPath: string, envName: string) => {
@@ -29,15 +48,9 @@ export const setupDaemon = (
 ): void => {
   if (binPath != null) {
     cfg.binPath = binPath
-    console.log(
-      `daemon: binPath arg was not null so config binPath set to ${binPath}`,
-    )
   }
   if (socketPath != null) {
     cfg.socketPath = socketPath
-    console.log(
-      `daemon: socketPath arg was not null so config socketPath set to ${socketPath}`,
-    )
   }
 }
 
@@ -60,24 +73,18 @@ export const startDaemon = async (
   switch (status) {
     case 'running':
       // OK, return without the process as it's been created elsewhere
-      console.log('I think the daemon is already running')
-      cfg.runStatus = 'starting'
-      await stopDaemon(cfg)
-      return execStartDaemon(cfg.binPath, cfg.env.name, detached)
+      return
     case 'starting':
       // Already being started by another process, just need to wait for it
-      console.log('I think the daemon is already being started somehwere else')
       return cfg.whenRunStatus('running')
     case 'stopping':
       // Wait for existing process to be stopped before starting again
-      console.log('I think the daemon is being stopped')
       await cfg.whenRunStatus('stopped')
     // eslint-disable-next-line no-fallthrough
     case 'stopped':
       // Return the child process as provided by execa
-      console.log('I think the daemon is stopped, so I will try to start it')
       cfg.runStatus = 'starting'
-      return execStartDaemon(cfg.binPath, cfg.env.name, detached)
+      return await execStartDaemon(cfg.binPath, cfg.env.name, detached)
     default:
       throw new Error(`Unhandled daemon status: ${status}`)
   }

@@ -2,9 +2,12 @@
 
 import os from 'os'
 import * as path from 'path'
+import type { SwarmConfig } from '@mainframe/config'
 import keythereum from 'keythereum'
 import * as fs from 'fs-extra'
 import execa from 'execa'
+
+import { onDataMatch } from './utils'
 
 export type KeyObject = {
   address: string,
@@ -96,55 +99,49 @@ export const listKeyStorePaths = async (): Promise<KeyObject[]> => {
   return keystores
 }
 
-export const startSwarm = async (swarmPath, swarmConfig): Promise => {
-  const keystores = await listKeyStores()
-  const keystore = keystores[0]
+export const startSwarm = (config: SwarmConfig): Promise<void> => {
+  return new Promise(async (resolve, reject) => {
+    const keystores = await listKeyStores()
+    const keystore = keystores[0]
 
-  proc = execa(swarmPath, [
-    '--datadir',
-    datadir,
-    '--password',
-    passwordFile,
-    '--bzzaccount',
-    keystore.address,
-    '--verbosity',
-    '4',
-    '--bootnodes',
-    'enode://ee9a5a571ea6c8a59f9a8bb2c569c865e922b41c91d09b942e8c1d4dd2e1725bd2c26149da14de1f6321a2c6fdf1e07c503c3e093fb61696daebf74d6acd916b@54.186.219.160:30399',
-    '--ws',
-    '--wsorigins',
-    '*',
-    '--ens-api',
-    'https://mainnet.infura.io/55HkPWVAJQjGH4ucvfW9',
-  ])
+    proc = execa(config.binPath, [
+      '--datadir',
+      datadir,
+      '--password',
+      passwordFile,
+      '--bzzaccount',
+      keystore.address,
+      '--verbosity',
+      '4',
+      '--bootnodes',
+      'enode://ee9a5a571ea6c8a59f9a8bb2c569c865e922b41c91d09b942e8c1d4dd2e1725bd2c26149da14de1f6321a2c6fdf1e07c503c3e093fb61696daebf74d6acd916b@54.186.219.160:30399',
+      '--ws',
+      '--wsorigins',
+      '*',
+      '--ens-api',
+      'https://mainnet.infura.io/55HkPWVAJQjGH4ucvfW9',
+    ])
 
-  await fs.ensureDir(`${datadir}${path.sep}logs`)
+    await fs.ensureDir(`${datadir}${path.sep}logs`)
 
-  proc.stderr.pipe(
-    fs.createWriteStream(`${datadir}${path.sep}logs${path.sep}swarm.log`),
-  )
+    proc.stderr.pipe(
+      fs.createWriteStream(`${datadir}${path.sep}logs${path.sep}swarm.log`),
+    )
 
-  proc.stdout.on('data', data => {
-    const dataStr = data.toString()
-    if (dataStr.toLowerCase().indexOf('fatal:') !== -1) {
-      const error = new Error(`Swarm error: ${dataStr}`)
-      // eslint-disable-next-line no-console
-      console.log(error)
-    }
-  })
+    const stopOut = onDataMatch(proc.stdout, 'fatal:', err => {
+      stopOut()
+      reject(new Error(`Swarm error: ${err}`))
+    })
 
-  proc.stderr.on('data', data => {
-    if (
-      data
-        .toString()
-        .toLowerCase()
-        .indexOf('websocket endpoint opened') !== -1
-    ) {
-      // eslint-disable-next-line no-console
-      console.log('Swarm node started')
-      swarmConfig.runStatus = 'running'
-    }
-    return proc
+    const stopErr = onDataMatch(
+      proc.stderr,
+      'websocket endpoint opened',
+      () => {
+        stopErr()
+        config.runStatus = 'running'
+        resolve()
+      },
+    )
   })
 }
 
