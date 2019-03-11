@@ -42,6 +42,7 @@ const siteConfig = {
   },
 
   /* Custom fonts for website */
+  stylesheets: ['https://fonts.googleapis.com/css?family=Muli', 'https://fonts.googleapis.com/css?family=Poppins'],
 
   // This copyright info is used in /core/Footer.js and blog RSS/Atom feeds.
   copyright: `Copyright © ${new Date().getFullYear()} Mainframe`,
