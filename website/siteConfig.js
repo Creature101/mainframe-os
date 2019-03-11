@@ -9,7 +9,6 @@
 // site configuration options.
 
 const siteConfig = {
-  // title: 'Mainframe Developer Documentation', // Title for your website.
   tagline: 'Get started using Mainframe.',
   url: 'https://docs.mainframe.com', // Your website URL
   baseUrl: '/', // Base URL for your project */
@@ -39,17 +38,10 @@ const siteConfig = {
   /* Colors for website */
   colors: {
     primaryColor: '#232323',
-    secondaryColor: '#00A7E7',
+    secondaryColor: '#da1157',
   },
 
   /* Custom fonts for website */
-
-  fonts: {
-    myFont: ['Poppins', 'Serif'],
-    myOtherFont: ['Poppins', '-apple-system', 'system-ui'],
-  },
-
-  stylesheets: ['https://fonts.googleapis.com/css?family=Muli'],
 
   // This copyright info is used in /core/Footer.js and blog RSS/Atom feeds.
   copyright: `Copyright © ${new Date().getFullYear()} Mainframe`,
@@ -80,6 +72,6 @@ const siteConfig = {
   // You may provide arbitrary config keys to be used as needed by your
   // template. For example, if you need your repo's URL...
   //   repoUrl: 'https://github.com/facebook/test-site',
-}
+};
 
-module.exports = siteConfig
+module.exports = siteConfig;
