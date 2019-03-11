@@ -9,7 +9,7 @@
 // site configuration options.
 
 const siteConfig = {
-  title: 'Mainframe Developer Documentation', // Title for your website.
+  // title: 'Mainframe Developer Documentation', // Title for your website.
   tagline: 'Get started using Mainframe.',
   url: 'https://docs.mainframe.com', // Your website URL
   baseUrl: '/', // Base URL for your project */
@@ -27,19 +27,18 @@ const siteConfig = {
 
   // For no header links in the top nav bar -> headerLinks: [],
   headerLinks: [
-    {doc: 'introduction', label: 'Quick Start'},
-    {doc: 'platform', label: 'Platform'},
-    {doc: 'sdk', label: 'SDK'},
+    { doc: 'introduction', label: 'Quick Start' },
+    { doc: 'platform', label: 'Platform' },
+    { doc: 'sdk', label: 'SDK' },
   ],
 
   /* path to images for header/footer */
-  headerIcon: 'img/MF_Symbol_Red-Rose_BG.png',
-  footerIcon: 'img/MF_Symbol_Dark_BG.png',
+  headerIcon: 'img/dev-portal-logo.png',
   favicon: 'img/favicon.png',
 
   /* Colors for website */
   colors: {
-    primaryColor: '#DA1157',
+    primaryColor: '#232323',
     secondaryColor: '#00A7E7',
   },
 
@@ -49,6 +48,8 @@ const siteConfig = {
     myFont: ['Poppins', 'Serif'],
     myOtherFont: ['Poppins', '-apple-system', 'system-ui'],
   },
+
+  stylesheets: ['https://fonts.googleapis.com/css?family=Muli'],
 
   // This copyright info is used in /core/Footer.js and blog RSS/Atom feeds.
   copyright: `Copyright © ${new Date().getFullYear()} Mainframe`,
@@ -79,6 +80,6 @@ const siteConfig = {
   // You may provide arbitrary config keys to be used as needed by your
   // template. For example, if you need your repo's URL...
   //   repoUrl: 'https://github.com/facebook/test-site',
-};
+}
 
-module.exports = siteConfig;
+module.exports = siteConfig
